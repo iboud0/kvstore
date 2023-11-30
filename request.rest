@@ -1,0 +1,17 @@
+#Get Request
+
+GET http://localhost:8080/get?key=foo
+
+#Set Request
+
+POST http://localhost:8080/set
+Content-Type: application/json
+
+{
+  "key": "foo",
+  "value": "bar"
+}
+
+#Del Request
+
+DELETE http://localhost:8080/del?key=foo
