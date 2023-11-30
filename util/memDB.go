@@ -46,6 +46,21 @@ func NewMemDB() (*MemDB, error) {
 	return mem, nil
 }
 
+// For testing
+func NewMemDBtest() (*MemDB, error) {
+	wal, err := NewWAL("../disk/walStorage/wal.bin")
+	if err != nil {
+		return nil, err
+	}
+
+	mem := &MemDB{
+		skiplist: skiplist.New(skiplist.Bytes),
+		wal:      wal,
+	}
+
+	return mem, nil
+}
+
 func (mem *MemDB) Set(key []byte, value []byte) error {
 	mem.skiplist.Set(key, NewValue("SET", value))
 

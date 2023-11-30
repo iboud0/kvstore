@@ -20,7 +20,7 @@ func TestSSTFileReadWrite(t *testing.T) {
 		if err := sstFile.Close(); err != nil {
 			t.Errorf("Error closing SST file: %v", err)
 		}
-		if err := os.Remove(sstFile.file.Name()); err != nil {
+		if err := os.Remove(sstFile.File.Name()); err != nil {
 			t.Errorf("Error removing SST file: %v", err)
 		}
 	})
@@ -59,7 +59,7 @@ func TestSSTFileReadWrite(t *testing.T) {
 	}
 
 	// Read the SST file
-	file, err := os.Open(sstFile.file.Name())
+	file, err := os.Open(sstFile.File.Name())
 	if err != nil {
 		t.Fatalf("Error opening SST file: %v", err)
 	}
@@ -127,21 +127,21 @@ func TestSSTFileNumbering(t *testing.T) {
 		if err := sstFile1.Close(); err != nil {
 			t.Errorf("Error closing SST file 1: %v", err)
 		}
-		if err := os.Remove(sstFile1.file.Name()); err != nil {
+		if err := os.Remove(sstFile1.File.Name()); err != nil {
 			t.Errorf("Error removing SST file 1: %v", err)
 		}
 
 		if err := sstFile2.Close(); err != nil {
 			t.Errorf("Error closing SST file 2: %v", err)
 		}
-		if err := os.Remove(sstFile2.file.Name()); err != nil {
+		if err := os.Remove(sstFile2.File.Name()); err != nil {
 			t.Errorf("Error removing SST file 2: %v", err)
 		}
 
 		if err := sstFile3.Close(); err != nil {
 			t.Errorf("Error closing SST file 3: %v", err)
 		}
-		if err := os.Remove(sstFile3.file.Name()); err != nil {
+		if err := os.Remove(sstFile3.File.Name()); err != nil {
 			t.Errorf("Error removing SST file 3: %v", err)
 		}
 	})
@@ -151,23 +151,23 @@ func TestSSTFileNumbering(t *testing.T) {
 	expectedFile2 := filepath.Join("..", "disk", "sstStorage", "sst002")
 	expectedFile3 := filepath.Join("..", "disk", "sstStorage", "sst003")
 
-	t.Logf("Actual File 1: %s\n", sstFile1.file.Name())
-	t.Logf("Actual File 2: %s\n", sstFile2.file.Name())
-	t.Logf("Actual File 3: %s\n", sstFile3.file.Name())
+	t.Logf("Actual File 1: %s\n", sstFile1.File.Name())
+	t.Logf("Actual File 2: %s\n", sstFile2.File.Name())
+	t.Logf("Actual File 3: %s\n", sstFile3.File.Name())
 
 	t.Logf("Expected File 1: %s\n", expectedFile1)
 	t.Logf("Expected File 2: %s\n", expectedFile2)
 	t.Logf("Expected File 3: %s\n", expectedFile3)
 
-	if sstFile1.file.Name() != expectedFile1 {
-		t.Errorf("File name for SST file 1 does not match expected: got %s, expected %s", sstFile1.file.Name(), expectedFile1)
+	if sstFile1.File.Name() != expectedFile1 {
+		t.Errorf("File name for SST file 1 does not match expected: got %s, expected %s", sstFile1.File.Name(), expectedFile1)
 	}
 
-	if sstFile2.file.Name() != expectedFile2 {
-		t.Errorf("File name for SST file 2 does not match expected: got %s, expected %s", sstFile2.file.Name(), expectedFile2)
+	if sstFile2.File.Name() != expectedFile2 {
+		t.Errorf("File name for SST file 2 does not match expected: got %s, expected %s", sstFile2.File.Name(), expectedFile2)
 	}
 
-	if sstFile3.file.Name() != expectedFile3 {
-		t.Errorf("File name for SST file 3 does not match expected: got %s, expected %s", sstFile3.file.Name(), expectedFile3)
+	if sstFile3.File.Name() != expectedFile3 {
+		t.Errorf("File name for SST file 3 does not match expected: got %s, expected %s", sstFile3.File.Name(), expectedFile3)
 	}
 }

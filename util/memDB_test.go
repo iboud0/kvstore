@@ -10,7 +10,7 @@ import (
 
 func TestMemDBFlushToDisk(t *testing.T) {
 	// Create a new MemDB
-	mem, err := NewMemDB()
+	mem, err := NewMemDBtest()
 	if err != nil {
 		t.Fatalf("Error creating MemDB: %v", err)
 	}
