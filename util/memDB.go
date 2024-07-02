@@ -252,5 +252,5 @@ func getValueFromSSTFile(fileName string, key []byte) (string, int, error) {
 	defer file.Close()
 
 	sstFile := &SSTFile{File: file}
-	return sstFile.GetValueByKey(key)
+	return sstFile.Get(key)
 }

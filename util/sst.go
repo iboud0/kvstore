@@ -10,12 +10,19 @@ import (
 	"path/filepath"
 )
 
-// SST file struct.
+const (
+	sstDir       = "../disk/sstStorage"
+	magicString  = "SSTF"
+	getOperatuon = "GET"
+	setOperation = "SET"
+	delOperation = "DEL"
+)
+
+// SSTFile represents an SST (Sorted String Table) file.
 type SSTFile struct {
 	File *os.File
 }
 
-// SSTFileHeader represents the header of the SST file.
 type SSTFileHeader struct {
 	Magic       []byte
 	EntryCount  uint32
@@ -24,224 +31,152 @@ type SSTFileHeader struct {
 	Version     uint16
 }
 
-// SSTTuple represents a key-value pair in the SST file.
+type SSTPair struct {
+	Operation string
+	Value     []byte
+}
 type SSTTuple struct {
 	Key   []byte
-	Value Value
+	Value SSTPair
 }
 
-// NewSSTFile creates a new instance of the SST File.
-func NewSSTFile() (*SSTFile, error) {
-	// Get the directory for SST storage
-	sstDir := filepath.Join("disk", "sstStorage")
+// findLastSSTNumber finds the number of the latest SST file created.
+func findLastSSTNumber(sstDir string) int {
+	files, err := filepath.Glob(filepath.Join(sstDir, "sst*"))
+	if err != nil {
+		return -1
+	}
 
-	// Create the directory if it doesn't exist
+	var res, num int
+	for _, file := range files {
+		if _, err := fmt.Sscanf(filepath.Base(file), "sst%03d", &num); err == nil {
+			if num > res {
+				res = num
+			}
+		}
+	}
+
+	return res
+}
+
+func NewSSTFile() (*SSTFile, error) {
 	if err := os.MkdirAll(sstDir, os.ModePerm); err != nil {
 		return nil, err
 	}
 
-	// Find the last created SST file to determine the next number
-	lastSSTNumber, err := findLastSSTNumber(sstDir)
-	if err != nil {
-		return nil, err
+	// Find the last SST file number to create a new one
+	lastSST := findLastSSTNumber(sstDir)
+	if lastSST == -1 {
+		return nil, errors.New("Error finding last SST")
 	}
 
-	// Generate the filename for the new SST file
-	filename := fmt.Sprintf("sst%03d", lastSSTNumber+1)
+	// Generate the new SST file name
+	filename := fmt.Sprintf("sst%03d", lastSST+1)
 
-	// Create the SST file
+	// Create the new SST file
 	file, err := os.Create(filepath.Join(sstDir, filename))
 	if err != nil {
 		return nil, err
 	}
 
-	// Return the SSTFile struct with the opened file
 	return &SSTFile{File: file}, nil
 }
 
-// Helper function to find the last created SST file number
-func findLastSSTNumber(sstDir string) (int, error) {
-	// Find all files in the SST storage directory
-	files, err := filepath.Glob(filepath.Join(sstDir, "sst*"))
-	if err != nil {
-		return 0, err
-	}
-
-	// Iterate through the files to find the last number
-	var lastNumber int
-	for _, file := range files {
-		_, err := fmt.Sscanf(filepath.Base(file), "sst%03d", &lastNumber)
-		if err != nil {
-			continue // Ignore files that don't match the naming pattern
-		}
-	}
-
-	return lastNumber, nil
-}
-
-// Close closes the SST file.
 func (s *SSTFile) Close() error {
 	return s.File.Close()
 }
 
+// writeBinary writes multiple values into the binary file.
+func writeBinary(w io.Writer, values ...interface{}) error {
+	for _, value := range values {
+		if err := binary.Write(w, binary.BigEndian, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readBinary reads multiple values from the binary file.
+func readBinary(r io.Reader, values ...interface{}) error {
+	for _, value := range values {
+		if err := binary.Read(r, binary.BigEndian, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readBytes reads a specified number of bytes from the binary file.
+func readBytes(r io.Reader, n int) ([]byte, error) {
+	bytes := make([]byte, n)
+	_, err := io.ReadFull(r, bytes)
+	return bytes, err
+}
+
+// readKeyValue reads a key or value from the binary file.
+func readKeyValue(r io.Reader) ([]byte, error) {
+	var length uint32
+	if err := binary.Read(r, binary.BigEndian, &length); err != nil {
+		return nil, err
+	}
+	return readBytes(r, int(length))
+}
+
+// readHeader reads the SST file header.
+func (s *SSTFile) readHeader() (SSTFileHeader, error) {
+	var header SSTFileHeader
+	err := readBinary(s.File, &header.Magic, &header.EntryCount, &header.SmallestKey, &header.LongestKey, &header.Version)
+	return header, err
+}
+
 // writeHeader writes the SST file header.
 func (s *SSTFile) writeHeader(header SSTFileHeader) error {
-	// Magic number.
-	if err := binary.Write(s.File, binary.BigEndian, header.Magic); err != nil {
-		return err
-	}
-
-	// Entry count.
-	if err := binary.Write(s.File, binary.BigEndian, header.EntryCount); err != nil {
-		return err
-	}
-
-	// Smallest key length.
-	if err := binary.Write(s.File, binary.BigEndian, uint32(len(header.SmallestKey))); err != nil {
-		return err
-	}
-
-	// Smallest key.
-	if err := binary.Write(s.File, binary.BigEndian, header.SmallestKey); err != nil {
-		return err
-	}
-
-	// Longest key length.
-	if err := binary.Write(s.File, binary.BigEndian, uint32(len(header.LongestKey))); err != nil {
-		return err
-	}
-
-	// Longest key.
-	if err := binary.Write(s.File, binary.BigEndian, header.LongestKey); err != nil {
-		return err
-	}
-
-	// Version.
-	if err := binary.Write(s.File, binary.BigEndian, header.Version); err != nil {
-		return err
-	}
-
-	return nil
+	return writeBinary(s.File, header.Magic, header.EntryCount, uint32(len(header.SmallestKey)), header.SmallestKey, uint32(len(header.LongestKey)), header.LongestKey, header.Version)
 }
 
 // writeTuple writes a key-value pair into the SST file.
-func (s *SSTFile) writeTuple(key []byte, value Value) error {
-	// Operation
-	if err := binary.Write(s.File, binary.BigEndian, []byte(value.Operation)); err != nil {
-		return err
+func (s *SSTFile) writeTuple(key []byte, value SSTPair) error {
+	switch value.Operation {
+	case setOperation:
+		return writeBinary(s.File, []byte(setOperation), uint32(len(key)), key, uint32(len(value.Value)), value.Value)
+	case delOperation:
+		return writeBinary(s.File, []byte(delOperation), uint32(len(key)), key)
+	default:
+		return fmt.Errorf("unsupported operation: %s", value.Operation)
 	}
-
-	if value.Operation == "SET" {
-		// Key length.
-		if err := binary.Write(s.File, binary.BigEndian, uint32(len(key))); err != nil {
-			return err
-		}
-
-		// Key.
-		if err := binary.Write(s.File, binary.BigEndian, key); err != nil {
-			return err
-		}
-
-		// Value length.
-		if err := binary.Write(s.File, binary.BigEndian, uint32(len(value.Value))); err != nil {
-			return err
-		}
-
-		// Value.
-		if err := binary.Write(s.File, binary.BigEndian, value.Value); err != nil {
-			return err
-		}
-	} else if value.Operation == "DEL" {
-		// Key length.
-		if err := binary.Write(s.File, binary.BigEndian, uint32(len(key))); err != nil {
-			return err
-		}
-
-		// Key.
-		if err := binary.Write(s.File, binary.BigEndian, key); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
-// GetValueByKey retrieves the value for a given key in the SST file.
-func (s *SSTFile) GetValueByKey(key []byte) (string, int, error) {
-	var magic [4]byte
-	var entryCount uint32
-	var smallestKeyLength uint32
-	var longestKeyLength uint32
-	var version uint16
-
-	// Read and decode the header element by element to get information about the SST file
-	if err := binary.Read(s.File, binary.BigEndian, &magic); err != nil {
+// Get retrieves the value for a given key in the SST file.
+func (s *SSTFile) Get(key []byte) (string, int, error) {
+	_, err := s.readHeader()
+	if err != nil {
 		return "", 2, err
 	}
 
-	if string(magic[:]) != "SSTF" {
-		return "", 2, errors.New("Invalid SST file format")
-	}
-
-	if err := binary.Read(s.File, binary.BigEndian, &entryCount); err != nil {
-		return "", 2, err
-	}
-
-	if err := binary.Read(s.File, binary.BigEndian, &smallestKeyLength); err != nil {
-		return "", 2, err
-	}
-	smallestKeyBytes := make([]byte, smallestKeyLength)
-	if err := binary.Read(s.File, binary.BigEndian, &smallestKeyBytes); err != nil {
-		return "", 2, err
-	}
-
-	if err := binary.Read(s.File, binary.BigEndian, &longestKeyLength); err != nil {
-		return "", 2, err
-	}
-	longestKeyBytes := make([]byte, longestKeyLength)
-	if err := binary.Read(s.File, binary.BigEndian, &longestKeyBytes); err != nil {
-		return "", 2, err
-	}
-
-	if err := binary.Read(s.File, binary.BigEndian, &version); err != nil {
-		return "", 2, err
-	}
-
-	// Iterate through the tuples
 	for {
-		var operationType [3]byte
-		if err := binary.Read(s.File, binary.BigEndian, &operationType); err != nil {
-			if err == io.EOF {
-				break // End of file reached
-			}
+		opType, err := readBytes(s.File, 3)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
 			return "", 2, err
 		}
 
-		var keyLength uint32
-		if err := binary.Read(s.File, binary.BigEndian, &keyLength); err != nil {
+		keyBytes, err := readKeyValue(s.File)
+		if err != nil {
 			return "", 2, err
 		}
 
-		keyBytes := make([]byte, keyLength)
-		if _, err := io.ReadFull(s.File, keyBytes); err != nil {
-			return "", 2, err
-		}
-
-		if string(operationType[:]) == "SET" {
-			var valueLength uint32
-			if err := binary.Read(s.File, binary.BigEndian, &valueLength); err != nil {
+		switch string(opType) {
+		case setOperation:
+			valueBytes, err := readKeyValue(s.File)
+			if err != nil {
 				return "", 2, err
 			}
-
-			valueBytes := make([]byte, valueLength)
-			if _, err := io.ReadFull(s.File, valueBytes); err != nil {
-				return "", 2, err
-			}
-
 			if bytes.Equal(key, keyBytes) {
 				return string(valueBytes), 1, nil
 			}
-		} else if string(operationType[:]) == "DEL" {
+		case delOperation:
 			if bytes.Equal(key, keyBytes) {
 				return "", 0, fmt.Errorf("key '%s' is marked as deleted", key)
 			}
