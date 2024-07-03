@@ -48,6 +48,11 @@ func TestReadWriteBinary(t *testing.T) {
 	if !bytes.Equal(res1, var1) || res2 != var2 || res3 != var3 {
 		t.Errorf("Read unexpected values: %s", err)
 	}
+
+	sst.Close()
+	if err := os.Remove(sst.File.Name()); err != nil {
+		t.Log(err)
+	}
 }
 
 func TestReadWriteHeader(t *testing.T) {
@@ -77,5 +82,10 @@ func TestReadWriteHeader(t *testing.T) {
 
 	if !reflect.DeepEqual(h, res) {
 		t.Errorf("Error: written and read headers are not equal")
+	}
+
+	sst.Close()
+	if err := os.Remove(sst.File.Name()); err != nil {
+		t.Log(err)
 	}
 }
