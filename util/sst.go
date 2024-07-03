@@ -124,8 +124,19 @@ func readKeyValue(r io.Reader) ([]byte, error) {
 
 // readHeader reads the SST file header.
 func (s *SSTFile) readHeader() (SSTFileHeader, error) {
-	var header SSTFileHeader
-	err := readBinary(s.File, &header.Magic, &header.EntryCount, &header.SmallestKey, &header.LongestKey, &header.Version)
+	var (
+		header SSTFileHeader
+		length uint32
+		err    error
+	)
+
+	header.Magic, err = readBytes(s.File, len(magicString))
+	err = readBinary(s.File, &header.EntryCount, &length)
+	header.SmallestKey, err = readBytes(s.File, int(length))
+	err = readBinary(s.File, &length)
+	header.LongestKey, err = readBytes(s.File, int(length))
+	err = readBinary(s.File, &header.Version)
+
 	return header, err
 }
 

@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -46,5 +47,35 @@ func TestReadWriteBinary(t *testing.T) {
 	err = readBinary(sst.File, &res2, &res3)
 	if !bytes.Equal(res1, var1) || res2 != var2 || res3 != var3 {
 		t.Errorf("Read unexpected values: %s", err)
+	}
+}
+
+func TestReadWriteHeader(t *testing.T) {
+	var h, res SSTFileHeader
+	h.Magic = []byte(magicString)
+	h.EntryCount = 2
+	h.LongestKey = []byte("fooo")
+	h.SmallestKey = []byte("foo")
+	h.Version = 3
+
+	sst, err := NewSSTFile()
+	if err != nil {
+		t.Errorf("Error creating the file: %s", err)
+	}
+
+	err = sst.writeHeader(h)
+	if err != nil {
+		t.Errorf("Error writing the header: %s", err)
+	}
+
+	sst.File.Seek(0, 0)
+
+	res, err = sst.readHeader()
+	if err != nil {
+		t.Errorf("Error reading the header: %s", err)
+	}
+
+	if !reflect.DeepEqual(h, res) {
+		t.Errorf("Error: written and read headers are not equal")
 	}
 }
