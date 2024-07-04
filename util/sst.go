@@ -144,14 +144,14 @@ func (s *SSTFile) writeHeader(header SSTFileHeader) error {
 }
 
 // writeTuple writes a key-value pair into the SST file.
-func (s *SSTFile) writeTuple(key []byte, value SSTPair) error {
-	switch value.Operation {
+func (s *SSTFile) writeTuple(entry SSTTuple) error {
+	switch entry.Value.Operation {
 	case setOperation:
-		return writeBinary(s.File, []byte(setOperation), uint32(len(key)), key, uint32(len(value.Value)), value.Value)
+		return writeBinary(s.File, []byte(setOperation), uint32(len(entry.Key)), entry.Key, uint32(len(entry.Value.Value)), entry.Value.Value)
 	case delOperation:
-		return writeBinary(s.File, []byte(delOperation), uint32(len(key)), key)
+		return writeBinary(s.File, []byte(delOperation), uint32(len(entry.Key)), entry.Key)
 	default:
-		return fmt.Errorf("unsupported operation: %s", value.Operation)
+		return fmt.Errorf("unsupported operation: %s", entry.Value.Operation)
 	}
 }
 
