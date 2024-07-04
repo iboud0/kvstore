@@ -76,10 +76,11 @@ func (mem *MemDB) Set(key []byte, value []byte) error {
 func (mem *MemDB) Get(key []byte) ([]byte, error) {
 	elem := mem.skiplist.Get(key)
 	if elem.Value.(*Value).Operation == "DEL" {
-		return nil, errors.New("Key not found")
+		return nil, errors.New("key not found")
 	}
 	if elem == nil {
-		FindValueInSSTFiles(key)
+		val, err := FindValueInSSTFiles(key)
+		return []byte(val), err
 	}
 	return elem.Value.(*Value).Value, nil
 }
@@ -87,7 +88,7 @@ func (mem *MemDB) Get(key []byte) ([]byte, error) {
 func (mem *MemDB) Del(key []byte) ([]byte, error) {
 	elem := mem.skiplist.Get(key)
 	if elem == nil || elem.Value.(*Value).Operation == "DEL" {
-		return nil, errors.New("Key not found")
+		return nil, errors.New("key not found")
 	}
 	mem.skiplist.Set(key, NewValue("DEL", elem.Value.(*Value).Value))
 
@@ -112,19 +113,22 @@ func (mem *MemDB) FlushToDisk() error {
 	var smallestKey, longestKey []byte
 
 	// Iterate through the skiplist and collect tuples
-	var tuples []SSTTuple
+	var (
+		tuples []SSTTuple
+		p      SSTPair
+	)
 	for elem := firstElement; elem != nil; elem = elem.Next() {
 		key, ok := elem.Key().([]byte)
 		if !ok {
 			// Handle the case where the key is not of type []byte
-			return errors.New("Key is not of type []byte")
+			return errors.New("key is not of type []byte")
 		}
 
 		// Use a type assertion to get the *Value from the interface{}
 		valueInterface := elem.Value
 		value, ok := valueInterface.(*Value)
 		if !ok {
-			return errors.New("Value is not of type *Value")
+			return errors.New("value is not of type *Value")
 		}
 
 		// Track the smallest key
@@ -137,7 +141,9 @@ func (mem *MemDB) FlushToDisk() error {
 			longestKey = key
 		}
 
-		tuples = append(tuples, SSTTuple{Key: key, Value: *value})
+		p.Operation = value.Operation
+		p.Value = value.Value
+		tuples = append(tuples, SSTTuple{Key: key, Value: p})
 	}
 
 	// Create a new SST file
@@ -164,7 +170,7 @@ func (mem *MemDB) FlushToDisk() error {
 
 	// Write each tuple to the SST file
 	for _, tuple := range tuples {
-		err := sstFile.writeTuple(tuple.Key, tuple.Value)
+		err := sstFile.writeTuple(tuple)
 		if err != nil {
 			return err
 		}
@@ -204,7 +210,7 @@ func (mem *MemDB) Load() error {
 			case "DEL":
 				mem.skiplist.Set(entry.Key, NewValue("DEL", entry.Value))
 			default:
-				return errors.New("Unknown operation in WAL")
+				return errors.New("unknown operation in WAL")
 			}
 		}
 
@@ -223,9 +229,9 @@ func (mem *MemDB) Load() error {
 // FindValueInSSTFiles searches through SST files for a given key.
 func FindValueInSSTFiles(key []byte) (string, error) {
 	// Find the latest SST file number.
-	latestFileNumber, err := findLastSSTNumber(filepath.Join("disk/sstStorage"))
-	if err != nil {
-		return "", err
+	latestFileNumber := findLastSSTNumber(sstDir)
+	if latestFileNumber <= 0 {
+		return "", errors.New("Error finding last SST")
 	}
 
 	// Iterate through the SST files in reverse order.

@@ -51,8 +51,8 @@ func TestMemDBFlushToDisk(t *testing.T) {
 		t.Fatalf("Error flushing MemDB to disk: %v", err)
 	}
 	// Get the last SST file number
-	lastSSTNumber, err := findLastSSTNumber(filepath.Join("..", "disk", "sstStorage"))
-	if err != nil {
+	lastSSTNumber := findLastSSTNumber(filepath.Join("..", "disk", "sstStorage"))
+	if lastSSTNumber <= 0 {
 		t.Fatalf("Error finding the last SST file number: %v", err)
 	}
 

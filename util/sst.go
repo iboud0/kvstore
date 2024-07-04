@@ -130,12 +130,27 @@ func (s *SSTFile) readHeader() (SSTFileHeader, error) {
 	)
 
 	header.Magic, err = readBytes(s.File, len(magicString))
+	if err != nil {
+		return SSTFileHeader{}, err
+	}
 	err = readBinary(s.File, &header.EntryCount)
+	if err != nil {
+		return SSTFileHeader{}, err
+	}
 	header.SmallestKey, err = readKeyValue(s.File)
+	if err != nil {
+		return SSTFileHeader{}, err
+	}
 	header.LongestKey, err = readKeyValue(s.File)
+	if err != nil {
+		return SSTFileHeader{}, err
+	}
 	err = readBinary(s.File, &header.Version)
+	if err != nil {
+		return SSTFileHeader{}, err
+	}
 
-	return header, err
+	return header, nil
 }
 
 // writeHeader writes the SST file header.
