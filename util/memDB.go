@@ -237,10 +237,10 @@ func FindValueInSSTFiles(key []byte) ([]byte, error) {
 	// Iterate through the SST files in reverse order.
 	for i := latestFileNumber; i > 0; i-- {
 		fileName := fmt.Sprintf("sst%03d", i)
-		value, x, _ := getValueFromSSTFile(fileName, key)
-		if x == 1 {
+		value, n := getValueFromSSTFile(fileName, key)
+		if n == 1 {
 			return value, nil
-		} else if x == 0 {
+		} else if n == 0 {
 			return nil, fmt.Errorf("key '%s' not found, deleted", key)
 		}
 		// Continue to the next file if the key wasn't found.
@@ -250,10 +250,10 @@ func FindValueInSSTFiles(key []byte) ([]byte, error) {
 }
 
 // getValueFromSSTFile opens an SST file and retrieves a value for a given key.
-func getValueFromSSTFile(fileName string, key []byte) ([]byte, int, error) {
+func getValueFromSSTFile(fileName string, key []byte) ([]byte, int) {
 	file, err := os.Open(filepath.Join("disk/sstStorage", fileName))
 	if err != nil {
-		return nil, 2, err
+		return nil, -3
 	}
 	defer file.Close()
 

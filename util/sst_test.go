@@ -118,9 +118,9 @@ func TestGet(t *testing.T) {
 
 	sst.File.Seek(0, 0)
 
-	res, _, err := sst.Get(entry.Key)
-	if err != nil {
-		t.Fatalf("Error: %s", err)
+	res, n := sst.Get(entry.Key)
+	if n != 1 {
+		t.Fatalf("Error finding key")
 	}
 	if !bytes.Equal(res, entry.Value.Value) {
 		t.Fatalf("Error: retrieved unexpected value")
