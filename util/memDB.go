@@ -80,7 +80,7 @@ func (mem *MemDB) Get(key []byte) ([]byte, error) {
 	}
 	if elem == nil {
 		val, err := FindValueInSSTFiles(key)
-		return []byte(val), err
+		return val, err
 	}
 	return elem.Value.(*Value).Value, nil
 }
@@ -227,11 +227,11 @@ func (mem *MemDB) Load() error {
 }
 
 // FindValueInSSTFiles searches through SST files for a given key.
-func FindValueInSSTFiles(key []byte) (string, error) {
+func FindValueInSSTFiles(key []byte) ([]byte, error) {
 	// Find the latest SST file number.
 	latestFileNumber := findLastSSTNumber(sstDir)
 	if latestFileNumber <= 0 {
-		return "", errors.New("Error finding last SST")
+		return nil, errors.New("Error finding last SST")
 	}
 
 	// Iterate through the SST files in reverse order.
@@ -241,19 +241,19 @@ func FindValueInSSTFiles(key []byte) (string, error) {
 		if x == 1 {
 			return value, nil
 		} else if x == 0 {
-			return "", fmt.Errorf("key '%s' not found, deleted", key)
+			return nil, fmt.Errorf("key '%s' not found, deleted", key)
 		}
 		// Continue to the next file if the key wasn't found.
 	}
 
-	return "", fmt.Errorf("key '%s' not found in any SST file", key)
+	return nil, fmt.Errorf("key '%s' not found in any SST file", key)
 }
 
 // getValueFromSSTFile opens an SST file and retrieves a value for a given key.
-func getValueFromSSTFile(fileName string, key []byte) (string, int, error) {
+func getValueFromSSTFile(fileName string, key []byte) ([]byte, int, error) {
 	file, err := os.Open(filepath.Join("disk/sstStorage", fileName))
 	if err != nil {
-		return "", 2, err
+		return nil, 2, err
 	}
 	defer file.Close()
 

@@ -171,10 +171,10 @@ func (s *SSTFile) writeTuple(entry SSTTuple) error {
 }
 
 // Get retrieves the value for a given key in the SST file.
-func (s *SSTFile) Get(key []byte) (string, int, error) {
+func (s *SSTFile) Get(key []byte) ([]byte, int, error) {
 	_, err := s.readHeader()
 	if err != nil {
-		return "", 2, err
+		return nil, 2, err
 	}
 
 	for {
@@ -183,29 +183,29 @@ func (s *SSTFile) Get(key []byte) (string, int, error) {
 			break
 		}
 		if err != nil {
-			return "", 2, err
+			return nil, 2, err
 		}
 
 		keyBytes, err := readKeyValue(s.File)
 		if err != nil {
-			return "", 2, err
+			return nil, 2, err
 		}
 
 		switch string(opType) {
 		case setOperation:
-			valueBytes, err := readKeyValue(s.File)
+			value, err := readKeyValue(s.File)
 			if err != nil {
-				return "", 2, err
+				return nil, 2, err
 			}
 			if bytes.Equal(key, keyBytes) {
-				return string(valueBytes), 1, nil
+				return value, 1, nil
 			}
 		case delOperation:
 			if bytes.Equal(key, keyBytes) {
-				return "", 0, fmt.Errorf("key '%s' is marked as deleted", key)
+				return nil, 0, fmt.Errorf("key '%s' is marked as deleted", key)
 			}
 		}
 	}
 
-	return "", 3, fmt.Errorf("key '%s' not found", key)
+	return nil, 3, fmt.Errorf("key '%s' not found", key)
 }

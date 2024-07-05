@@ -122,7 +122,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error: %s", err)
 	}
-	if res != string(entry.Value.Value) {
+	if !bytes.Equal(res, entry.Value.Value) {
 		t.Fatalf("Error: retrieved unexpected value")
 	}
 
